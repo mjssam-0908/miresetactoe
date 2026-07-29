@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>틱택토</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  background: #fff;
+  color: #1a1a1a;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px;
+}
+
+/* ── 제목 ── */
+.main-title {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: #1E2761;
+  margin-bottom: 4px;
+}
+.main-sub {
+  font-size: 13px;
+  color: #94A3B8;
+  margin-bottom: 20px;
+}
+
+/* ── 모드 탭 ── */
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 16px;
+}
+.mode-tab {
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 2px solid #E2E8F0;
+  background: #F8FAFC;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+.mode-tab:hover { border-color: #1E2761; color: #1E2761; }
+.mode-tab.active {
+  background: #1E2761;
+  border-color: #1E2761;
+  color: #fff;
+}
+.mode-tab .tab-icon { font-size: 20px; display: block; margin-bottom: 3px; }
+.mode-tab.misere-tab.active { background: #9B1C4A; border-color: #9B1C4A; }
+.mode-tab.misere-ai-tab.active { background: #9B1C4A; border-color: #9B1C4A; }
+
+/* ── 미제레 배너 ── */
+.misere-banner {
+  display: none;
+  background: #FEF2F2;
+  border: 1.5px solid #FCA5A5;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #9B1C4A;
+  font-weight: 700;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.misere-banner.show { display: block; }
+
+/* ── 스코어 ── */
+.score-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  width: 100%;
+  max-width: 480px;
+}
+.sc {
+  flex: 1;
+  border-radius: 12px;
+  padding: 10px 8px;
+  text-align: center;
+  border: 1.5px solid #E2E8F0;
+  background: #F8FAFC;
+}
+.sc-label { font-size: 11px; color: #94A3B8; font-weight: 600; }
+.sc-num { font-size: 28px; font-weight: 900; margin-top: 1px; }
+.sc.o .sc-num { color: #1D9E75; }
+.sc.x .sc-num { color: #D85A30; }
+.sc.draw .sc-num { color: #94A3B8; }
+
+/* ── 상태바 ── */
+.status-bar {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: 24px;
+  margin-bottom: 14px;
+  border: 2px solid #E2E8F0;
+  color: #1a1a1a;
+  background: #F8FAFC;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.turn-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%; flex-shrink: 0;
+}
+
+/* ── 게임 판 ── */
+.board-wrap {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 16px;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 900;
+  border-radius: 16px;
+  border: 2.5px solid #E2E8F0;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.08s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cell:hover:not(.taken) { background: #EEF2FF; border-color: #A5B4FC; }
+.cell:active:not(.taken) { transform: scale(0.95); }
+.cell.o { color: #1D9E75; border-color: #A7F3D0; background: #F0FDF4; }
+.cell.x { color: #D85A30; border-color: #FCA5A5; background: #FEF2F2; }
+.cell.taken { cursor: default; pointer-events: none; }
+.cell.win-cell { border-width: 3px; }
+.cell.o.win-cell { border-color: #1D9E75; background: #DCFCE7; }
+.cell.x.win-cell { border-color: #D85A30; background: #FEE2E2; }
+
+/* ── 버튼 ── */
+.btn-row { display: flex; gap: 8px; width: 100%; max-width: 480px; }
+.btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn:active { opacity: 0.7; }
+.btn-reset { background: #1E2761; color: #fff; }
+.btn-misere { background: #9B1C4A; color: #fff; }
+
+/* ── 결과 오버레이 ── */
+.result-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.result-overlay.show { display: flex; }
+.result-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 36px 48px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  max-width: 320px;
+  width: 90%;
+}
+.result-emoji { font-size: 64px; margin-bottom: 12px; }
+.result-title { font-size: 28px; font-weight: 900; color: #1E2761; margin-bottom: 6px; }
+.result-sub { font-size: 14px; color: #64748B; margin-bottom: 24px; }
+.result-btn {
+  background: #1E2761; color: #fff;
+  border: none; border-radius: 12px;
+  padding: 12px 32px; font-size: 15px;
+  font-weight: 700; cursor: pointer; width: 100%;
+}
+.result-btn.misere-btn { background: #9B1C4A; }
+
+/* ── AI 생각중 ── */
+.thinking { opacity: 0.5; pointer-events: none; }
+
+@media (max-width: 400px) {
+  .main-title { font-size: 28px; }
+  .cell { font-size: 32px; border-radius: 12px; }
+  .mode-tab { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="main-title">틱택토</div>
+<div class="main-sub">경우의 수와 최적 전략 게임</div>
+
+<!-- 모드 탭 4개 -->
+<div class="mode-tabs">
+  <div class="mode-tab active" onclick="setMode('pvp')" id="tab-pvp">
+    <span class="tab-icon">👥</span>
+    틱택토<br>2인 대결
+  </div>
+  <div class="mode-tab" onclick="setMode('ai')" id="tab-ai">
+    <span class="tab-icon">🤖</span>
+    틱택토<br>AI 대결
+  </div>
+  <div class="mode-tab misere-tab" onclick="setMode('misere')" id="tab-misere">
+    <span class="tab-icon">😈</span>
+    미제레 틱택토<br>2인 대결
+  </div>
+  <div class="mode-tab misere-ai-tab" onclick="setMode('misere-ai')" id="tab-misere-ai">
+    <span class="tab-icon">🤖😈</span>
+    미제레 틱택토<br>AI 대결
+  </div>
+</div>
+
+<!-- 미제레 설명 배너 -->
+<div class="misere-banner" id="misere-banner">
+  😈 미제레 규칙: 3개 연속을 <b>만들면 져요!</b> — 일부러 피하세요!
+</div>
+
+<!-- 스코어 -->
+<div class="score-row">
+  <div class="sc o">
+    <div class="sc-label" id="label-o">O (나)</div>
+    <div class="sc-num" id="score-o">0</div>
+  </div>
+  <div class="sc draw">
+    <div class="sc-label">무승부</div>
+    <div class="sc-num" id="score-draw">0</div>
+  </div>
+  <div class="sc x">
+    <div class="sc-label" id="label-x">X (상대)</div>
+    <div class="sc-num" id="score-x">0</div>
+  </div>
+</div>
+
+<!-- 상태바 -->
+<div class="status-bar" id="status-bar">
+  <span class="turn-dot" id="turn-dot" style="background:#1D9E75;"></span>
+  <span id="status-text">O의 차례</span>
+</div>
+
+<!-- 게임판 -->
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<!-- 버튼 -->
+<div class="btn-row">
+  <button class="btn btn-reset" id="reset-btn" onclick="resetGame()">🔄 다시 시작</button>
+</div>
+
+<!-- 결과 오버레이 -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="result-emoji" id="result-emoji">🏆</div>
+    <div class="result-title" id="result-title">O 승리!</div>
+    <div class="result-sub" id="result-sub">잘 하셨어요!</div>
+    <button class="result-btn" id="result-btn" onclick="closeResult()">다시 하기</button>
+  </div>
+</div>
+
+<script>
+// ── 상태 ──────────────────────────────
+let board = Array(9).fill(null);
+let currentPlayer = 'O';
+let gameOver = false;
+let mode = 'pvp';   // pvp | ai | misere | misere-ai
+let scores = { O: 0, X: 0, draw: 0 };
+let winLine = [];
+let aiThinking = false;
+
+const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+// ── 초기화 ────────────────────────────
+function init() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = 'cell-' + i;
+    cell.addEventListener('click', () => handleClick(i));
+    boardEl.appendChild(cell);
+  }
+}
+
+function resetGame() {
+  board = Array(9).fill(null);
+  currentPlayer = 'O';
+  gameOver = false;
+  winLine = [];
+  aiThinking = false;
+  renderBoard();
+  updateStatus();
+  document.getElementById('board').classList.remove('thinking');
+}
+
+// ── 모드 변경 ─────────────────────────
+function setMode(m) {
+  mode = m;
+  ['pvp','ai','misere','misere-ai'].forEach(k => {
+    document.getElementById('tab-'+k).classList.toggle('active', k === m);
+  });
+
+  const isMisere = m === 'misere' || m === 'misere-ai';
+  document.getElementById('misere-banner').classList.toggle('show', isMisere);
+
+  const isAI = m === 'ai' || m === 'misere-ai';
+  document.getElementById('label-o').textContent = isAI ? 'O (나)' : 'O';
+  document.getElementById('label-x').textContent = isAI ? 'X (AI)' : 'X';
+
+  const resetBtn = document.getElementById('reset-btn');
+  resetBtn.className = 'btn ' + (isMisere ? 'btn-misere' : 'btn-reset');
+
+  const resultBtn = document.getElementById('result-btn');
+  resultBtn.className = 'result-btn ' + (isMisere ? 'misere-btn' : '');
+
+  resetGame();
+}
+
+// ── 클릭 처리 ─────────────────────────
+function handleClick(i) {
+  if (gameOver || board[i] || aiThinking) return;
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+  if (isAI && currentPlayer === 'X') return;
+
+  makeMove(i);
+
+  if (!gameOver && isAI && currentPlayer === 'X') {
+    aiThinking = true;
+    document.getElementById('board').classList.add('thinking');
+    document.getElementById('status-text').textContent = 'AI 생각 중...';
+    setTimeout(() => {
+      const aiMove = getAIMove();
+      aiThinking = false;
+      document.getElementById('board').classList.remove('thinking');
+      makeMove(aiMove);
+    }, 400);
+  }
+}
+
+function makeMove(i) {
+  board[i] = currentPlayer;
+  renderBoard();
+
+  const result = checkResult();
+  if (result) {
+    gameOver = true;
+    renderBoard();
+    showResult(result);
+    return;
+  }
+  currentPlayer = currentPlayer === 'O' ? 'X' : 'O';
+  updateStatus();
+}
+
+// ── 승패 체크 ─────────────────────────
+function checkResult() {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+
+  for (const line of WINS) {
+    const [a,b,c] = line;
+    if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+      winLine = line;
+      if (isMisere) {
+        // 미제레: 3개 연속 만든 사람이 짐
+        return { winner: board[a] === 'O' ? 'X' : 'O', loser: board[a] };
+      } else {
+        return { winner: board[a] };
+      }
+    }
+  }
+
+  if (board.every(c => c)) return { winner: null }; // 무승부
+  return null;
+}
+
+// ── 결과 표시 ─────────────────────────
+function showResult(result) {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+
+  let emoji, title, sub;
+
+  if (result.winner === null) {
+    emoji = '🤝'; title = '무승부!'; sub = '아무도 이기지 못했어요';
+    scores.draw++;
+    document.getElementById('score-draw').textContent = scores.draw;
+  } else {
+    const w = result.winner;
+    scores[w]++;
+    document.getElementById('score-' + w.toLowerCase()).textContent = scores[w];
+
+    if (isMisere) {
+      const loser = result.loser;
+      if (isAI) {
+        if (w === 'O') {
+          emoji = '🏆'; title = '내가 이겼어요!'; sub = 'AI가 3개 연속을 만들었어요 😈';
+        } else {
+          emoji = '😅'; title = 'AI 승리...'; sub = '내가 3개 연속을 만들었어요 😭';
+        }
+      } else {
+        emoji = '🏆'; title = `${w} 승리!`;
+        sub = `${loser}가 3개 연속을 만들어서 졌어요! 😈`;
+      }
+    } else {
+      if (isAI) {
+        if (w === 'O') {
+          emoji = '🎉'; title = '내가 이겼어요!'; sub = 'AI를 이겼어요! 대단해요! 🏆';
+        } else {
+          emoji = '🤖'; title = 'AI 승리...'; sub = '다시 도전해봐요!';
+        }
+      } else {
+        emoji = '🏆'; title = `${w} 승리!`; sub = '잘 하셨어요!';
+      }
+    }
+  }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-sub').textContent = sub;
+  document.getElementById('result-overlay').classList.add('show');
+}
+
+function closeResult() {
+  document.getElementById('result-overlay').classList.remove('show');
+  resetGame();
+}
+
+// ── 렌더링 ────────────────────────────
+function renderBoard() {
+  for (let i = 0; i < 9; i++) {
+    const cell = document.getElementById('cell-' + i);
+    cell.className = 'cell';
+    if (board[i]) {
+      cell.textContent = board[i];
+      cell.classList.add(board[i].toLowerCase(), 'taken');
+      if (winLine.includes(i)) cell.classList.add('win-cell');
+    } else {
+      cell.textContent = '';
+    }
+  }
+}
+
+function updateStatus() {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+  const dot = document.getElementById('turn-dot');
+  const txt = document.getElementById('status-text');
+
+  dot.style.background = currentPlayer === 'O' ? '#1D9E75' : '#D85A30';
+
+  let who = '';
+  if (isAI) {
+    who = currentPlayer === 'O' ? '내 차례 (O)' : 'AI 차례 (X)';
+  } else {
+    who = `${currentPlayer}의 차례`;
+  }
+
+  if (isMisere) {
+    txt.textContent = who + ' — 3개 연속 피하세요! 😈';
+  } else {
+    txt.textContent = who;
+  }
+}
+
+// ── AI 로직 ───────────────────────────
+function getAIMove() {
+  const isMisere = mode === 'misere-ai';
+
+  // 미제레: 일반과 반대 전략
+  if (isMisere) return getMisereAIMove();
+
+  // 일반: Minimax
+  return getBestMove('X', board);
+}
+
+function getBestMove(player, b) {
+  // 이길 수 있으면 바로
+  for (let i = 0; i < 9; i++) {
+    if (!b[i]) {
+      b[i] = player;
+      if (checkWin(b, player)) { b[i] = null; return i; }
+      b[i] = null;
+    }
+  }
+  // 상대 막기
+  const opp = player === 'X' ? 'O' : 'X';
+  for (let i = 0; i < 9; i++) {
+    if (!b[i]) {
+      b[i] = opp;
+      if (checkWin(b, opp)) { b[i] = null; return i; }
+      b[i] = null;
+    }
+  }
+  // 포크 만들기
+  const fork = findFork(b, player);
+  if (fork !== -1) return fork;
+  // 포크 막기
+  const oppFork = findFork(b, opp);
+  if (oppFork !== -1) return oppFork;
+  // 중앙
+  if (!b[4]) return 4;
+  // 반대 모서리
+  const corners = [[0,8],[2,6],[6,2],[8,0]];
+  for (const [c, opc] of corners) {
+    if (b[opc] === opp && !b[c]) return c;
+  }
+  // 모서리
+  for (const c of [0,2,6,8]) { if (!b[c]) return c; }
+  // 변
+  for (const e of [1,3,5,7]) { if (!b[e]) return e; }
+  return board.indexOf(null);
+}
+
+function getMisereAIMove() {
+  const b = [...board];
+  const player = 'X'; const opp = 'O';
+
+  // 상대가 이길 것 같으면 (미제레에서 '이긴다' = 3개 연속 만든다 = 진다)
+  // 상대의 2연속을 막아야 함 (상대가 이기면 내가 지므로)
+  // 단, 내가 3연속이 되는 곳은 피해야 함
+
+  const safe = [];
+  for (let i = 0; i < 9; i++) {
+    if (!b[i]) {
+      b[i] = player;
+      const iLose = checkWin(b, player); // 내가 3연속 → 지는 것
+      b[i] = null;
+      if (!iLose) safe.push(i);
+    }
+  }
+
+  // 안전한 칸 중 상대 막기
+  for (const i of safe) {
+    b[i] = opp;
+    if (checkWin(b, opp)) { b[i] = null; return i; }
+    b[i] = null;
+  }
+
+  // 안전한 칸 중 가운데 피하기 (미제레에서 가운데는 위험)
+  if (safe.length > 0) {
+    // 변 우선
+    const edges = [1,3,5,7].filter(i => safe.includes(i));
+    if (edges.length > 0) return edges[Math.floor(Math.random() * edges.length)];
+    // 모서리
+    const corners = [0,2,6,8].filter(i => safe.includes(i));
+    if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)];
+    return safe[0];
+  }
+
+  // 모든 칸이 위험하면 아무데나 (어쩔 수 없음)
+  return board.indexOf(null);
+}
+
+function checkWin(b, player) {
+  return WINS.some(([a,c,d]) => b[a] === player && b[c] === player && b[d] === player);
+}
+
+function findFork(b, player) {
+  for (let i = 0; i < 9; i++) {
+    if (!b[i]) {
+      b[i] = player;
+      let threats = 0;
+      for (let j = 0; j < 9; j++) {
+        if (!b[j]) {
+          b[j] = player;
+          if (checkWin(b, player)) threats++;
+          b[j] = null;
+        }
+      }
+      b[i] = null;
+      if (threats >= 2) return i;
+    }
+  }
+  return -1;
+}
+
+// ── 시작 ──────────────────────────────
+init();
+updateStatus();
+</script>
+</body>
+</html>
