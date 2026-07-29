@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>틱택토</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  background: #fff;
+  color: #1a1a1a;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+/* ── 제목 ── */
+.main-title {
+  font-size: 26px;
+  font-weight: 900;
+  color: #1E2761;
+  margin-bottom: 2px;
+}
+.main-sub {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-bottom: 8px;
+}
+
+/* ── 모드 탭 (가로 4개) ── */
+.mode-tabs {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 820px;
+  margin-bottom: 8px;
+}
+.mode-tab {
+  flex: 1;
+  padding: 7px 4px;
+  border-radius: 10px;
+  border: 2px solid #E2E8F0;
+  background: #F8FAFC;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  line-height: 1.3;
+}
+.mode-tab:hover { border-color: #1E2761; color: #1E2761; }
+.mode-tab.active { background: #1E2761; border-color: #1E2761; color: #fff; }
+.mode-tab .tab-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+.mode-tab.misere-tab.active,
+.mode-tab.misere-ai-tab.active { background: #9B1C4A; border-color: #9B1C4A; }
+
+/* ── 미제레 배너 ── */
+.misere-banner {
+  display: none;
+  background: #FEF2F2;
+  border: 1.5px solid #FCA5A5;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 11px;
+  color: #9B1C4A;
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+  max-width: 820px;
+  margin-bottom: 6px;
+}
+.misere-banner.show { display: block; }
+
+/* ── 메인 레이아웃: 가로 ── */
+.main-layout {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  max-width: 820px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* ── 왼쪽: 게임판 ── */
+.board-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  width: min(52vw, 380px);
+}
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(28px, 8vw, 56px);
+  font-weight: 900;
+  border-radius: 14px;
+  border: 2.5px solid #E2E8F0;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.08s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cell:hover:not(.taken) { background: #EEF2FF; border-color: #A5B4FC; }
+.cell:active:not(.taken) { transform: scale(0.93); }
+.cell.o { color: #1D9E75; border-color: #A7F3D0; background: #F0FDF4; }
+.cell.x { color: #D85A30; border-color: #FCA5A5; background: #FEF2F2; }
+.cell.taken { cursor: default; pointer-events: none; }
+.cell.o.win-cell { border-color: #1D9E75; background: #DCFCE7; border-width: 3px; }
+.cell.x.win-cell { border-color: #D85A30; background: #FEE2E2; border-width: 3px; }
+
+/* ── 오른쪽: 컨트롤 ── */
+.control-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 스코어 */
+.score-row {
+  display: flex;
+  gap: 7px;
+}
+.sc {
+  flex: 1;
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+  border: 1.5px solid #E2E8F0;
+  background: #F8FAFC;
+}
+.sc-label { font-size: 10px; color: #94A3B8; font-weight: 600; }
+.sc-num { font-size: 24px; font-weight: 900; }
+.sc.o .sc-num { color: #1D9E75; }
+.sc.x .sc-num { color: #D85A30; }
+.sc.draw .sc-num { color: #94A3B8; }
+
+/* 상태바 */
+.status-bar {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 2px solid #E2E8F0;
+  background: #F8FAFC;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+}
+.turn-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%; flex-shrink: 0;
+}
+
+/* 이력 */
+.history-box {
+  flex: 1;
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  max-height: 200px;
+}
+.history-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94A3B8;
+  margin-bottom: 5px;
+}
+.history-item {
+  font-size: 11px;
+  color: #475569;
+  padding: 3px 0;
+  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.history-item:last-child { border-bottom: none; }
+.h-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.h-o { background: #DCFCE7; color: #1D9E75; }
+.h-x { background: #FEE2E2; color: #D85A30; }
+.h-draw { background: #F1F5F9; color: #64748B; }
+
+/* 버튼 */
+.btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn:active { opacity: 0.7; }
+.btn-reset { background: #1E2761; color: #fff; }
+.btn-misere { background: #9B1C4A; color: #fff; }
+
+/* AI 난이도 */
+.diff-row {
+  display: flex;
+  gap: 5px;
+}
+.diff-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1.5px solid #E2E8F0;
+  background: #F8FAFC;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  text-align: center;
+}
+.diff-btn.active { background: #1E2761; color: #fff; border-color: #1E2761; }
+.misere-diff .diff-btn.active { background: #9B1C4A; border-color: #9B1C4A; }
+
+/* ── 결과 오버레이 ── */
+.result-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.result-overlay.show { display: flex; }
+.result-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 40px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+  max-width: 300px;
+  width: 88%;
+}
+.result-emoji { font-size: 56px; margin-bottom: 10px; }
+.result-title { font-size: 26px; font-weight: 900; color: #1E2761; margin-bottom: 5px; }
+.result-sub { font-size: 13px; color: #64748B; margin-bottom: 20px; }
+.result-btn {
+  background: #1E2761; color: #fff;
+  border: none; border-radius: 10px;
+  padding: 11px 28px; font-size: 14px;
+  font-weight: 700; cursor: pointer; width: 100%;
+}
+.result-btn.misere-btn { background: #9B1C4A; }
+
+.thinking { opacity: 0.5; pointer-events: none; }
+.diff-section { display: none; }
+.diff-section.show { display: block; }
+
+@media (max-width: 500px) {
+  body { padding: 8px; }
+  .main-title { font-size: 22px; }
+  .board { width: min(55vw, 280px); }
+  .main-layout { gap: 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="main-title">틱택토</div>
+<div class="main-sub">경우의 수와 최적 전략 게임</div>
+
+<!-- 모드 탭 -->
+<div class="mode-tabs">
+  <div class="mode-tab active" onclick="setMode('pvp')" id="tab-pvp">
+    <span class="tab-icon">👥</span>2인 대결
+  </div>
+  <div class="mode-tab" onclick="setMode('ai')" id="tab-ai">
+    <span class="tab-icon">🤖</span>AI 대결
+  </div>
+  <div class="mode-tab misere-tab" onclick="setMode('misere')" id="tab-misere">
+    <span class="tab-icon">😈</span>미제레 2인
+  </div>
+  <div class="mode-tab misere-ai-tab" onclick="setMode('misere-ai')" id="tab-misere-ai">
+    <span class="tab-icon">🤖😈</span>미제레 AI
+  </div>
+</div>
+
+<!-- 미제레 배너 -->
+<div class="misere-banner" id="misere-banner">
+  😈 미제레: 3개 연속을 <b>만들면 져요!</b> 일부러 피하세요!
+</div>
+
+<!-- 메인 레이아웃 -->
+<div class="main-layout">
+
+  <!-- 왼쪽: 게임판 -->
+  <div class="board-side">
+    <div class="board" id="board"></div>
+  </div>
+
+  <!-- 오른쪽: 컨트롤 -->
+  <div class="control-side">
+
+    <!-- 스코어 -->
+    <div class="score-row">
+      <div class="sc o">
+        <div class="sc-label" id="label-o">O</div>
+        <div class="sc-num" id="score-o">0</div>
+      </div>
+      <div class="sc draw">
+        <div class="sc-label">무승부</div>
+        <div class="sc-num" id="score-draw">0</div>
+      </div>
+      <div class="sc x">
+        <div class="sc-label" id="label-x">X</div>
+        <div class="sc-num" id="score-x">0</div>
+      </div>
+    </div>
+
+    <!-- 상태바 -->
+    <div class="status-bar" id="status-bar">
+      <span class="turn-dot" id="turn-dot" style="background:#1D9E75;"></span>
+      <span id="status-text">O의 차례</span>
+    </div>
+
+    <!-- AI 난이도 -->
+    <div class="diff-section" id="diff-section">
+      <div class="diff-row" id="diff-row">
+        <div class="diff-btn active" onclick="setDiff('easy')" id="diff-easy">😊 쉬움</div>
+        <div class="diff-btn" onclick="setDiff('medium')" id="diff-medium">😐 보통</div>
+        <div class="diff-btn" onclick="setDiff('hard')" id="diff-hard">😤 어려움</div>
+      </div>
+    </div>
+
+    <!-- 대결 이력 -->
+    <div class="history-box">
+      <div class="history-title">🏆 대결 이력</div>
+      <div id="history-list">
+        <div style="font-size:11px;color:#CBD5E1;text-align:center;padding:10px 0;">아직 기록 없음</div>
+      </div>
+    </div>
+
+    <!-- 다시 시작 버튼 -->
+    <button class="btn btn-reset" id="reset-btn" onclick="resetGame()">🔄 다시 시작</button>
+    <div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:4px;">수학교사 긍정의 여왕 만듬</div>
+
+  </div>
+</div>
+
+<!-- 결과 오버레이 -->
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="result-emoji" id="result-emoji">🏆</div>
+    <div class="result-title" id="result-title">O 승리!</div>
+    <div class="result-sub" id="result-sub">잘 하셨어요!</div>
+    <button class="result-btn" id="result-btn" onclick="closeResult()">다시 하기</button>
+  </div>
+</div>
+
+<script>
+let board = Array(9).fill(null);
+let currentPlayer = 'O';
+let gameOver = false;
+let mode = 'pvp';
+let diff = 'medium';
+let scores = { O: 0, X: 0, draw: 0 };
+let winLine = [];
+let aiThinking = false;
+let gameCount = 0;
+
+const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+// ── 초기화 ────────────────────────────
+function init() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = 'cell-' + i;
+    cell.addEventListener('click', () => handleClick(i));
+    boardEl.appendChild(cell);
+  }
+}
+
+function resetGame() {
+  board = Array(9).fill(null);
+  currentPlayer = 'O';
+  gameOver = false;
+  winLine = [];
+  aiThinking = false;
+  document.getElementById('board').classList.remove('thinking');
+  renderBoard();
+  updateStatus();
+}
+
+// ── 모드 변경 ─────────────────────────
+function setMode(m) {
+  mode = m;
+  ['pvp','ai','misere','misere-ai'].forEach(k => {
+    document.getElementById('tab-'+k).classList.toggle('active', k === m);
+  });
+
+  const isMisere = m === 'misere' || m === 'misere-ai';
+  const isAI = m === 'ai' || m === 'misere-ai';
+
+  document.getElementById('misere-banner').classList.toggle('show', isMisere);
+  document.getElementById('diff-section').classList.toggle('show', isAI);
+
+  const diffRow = document.getElementById('diff-row');
+  diffRow.className = 'diff-row' + (isMisere ? ' misere-diff' : '');
+
+  document.getElementById('label-o').textContent = isAI ? 'O (나)' : 'O';
+  document.getElementById('label-x').textContent = isAI ? 'X (AI)' : 'X';
+
+  const resetBtn = document.getElementById('reset-btn');
+  resetBtn.className = 'btn ' + (isMisere ? 'btn-misere' : 'btn-reset');
+  document.getElementById('result-btn').className = 'result-btn' + (isMisere ? ' misere-btn' : '');
+
+  scores = { O: 0, X: 0, draw: 0 };
+  document.getElementById('score-o').textContent = '0';
+  document.getElementById('score-x').textContent = '0';
+  document.getElementById('score-draw').textContent = '0';
+  document.getElementById('history-list').innerHTML = '<div style="font-size:11px;color:#CBD5E1;text-align:center;padding:10px 0;">아직 기록 없음</div>';
+  gameCount = 0;
+  resetGame();
+}
+
+function setDiff(d) {
+  diff = d;
+  ['easy','medium','hard'].forEach(k => {
+    document.getElementById('diff-'+k).classList.toggle('active', k === d);
+  });
+  resetGame();
+}
+
+// ── 클릭 처리 ─────────────────────────
+function handleClick(i) {
+  if (gameOver || board[i] || aiThinking) return;
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+  if (isAI && currentPlayer === 'X') return;
+
+  makeMove(i);
+
+  if (!gameOver && isAI && currentPlayer === 'X') {
+    aiThinking = true;
+    document.getElementById('board').classList.add('thinking');
+    document.getElementById('status-text').textContent = 'AI 생각 중...';
+    const delay = 300 + Math.random() * 300;
+    setTimeout(() => {
+      const aiMove = getAIMove();
+      aiThinking = false;
+      document.getElementById('board').classList.remove('thinking');
+      makeMove(aiMove);
+    }, delay);
+  }
+}
+
+function makeMove(i) {
+  board[i] = currentPlayer;
+  renderBoard();
+  const result = checkResult();
+  if (result) {
+    gameOver = true;
+    renderBoard();
+    setTimeout(() => showResult(result), 350);
+    return;
+  }
+  currentPlayer = currentPlayer === 'O' ? 'X' : 'O';
+  updateStatus();
+}
+
+// ── 승패 체크 ─────────────────────────
+function checkResult() {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+  for (const line of WINS) {
+    const [a,b,c] = line;
+    if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+      winLine = line;
+      if (isMisere) {
+        return { winner: board[a] === 'O' ? 'X' : 'O', loser: board[a] };
+      } else {
+        return { winner: board[a] };
+      }
+    }
+  }
+  if (board.every(c => c)) return { winner: null };
+  return null;
+}
+
+// ── 결과 표시 ─────────────────────────
+function showResult(result) {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+  gameCount++;
+
+  let emoji, title, sub, winner;
+
+  if (result.winner === null) {
+    emoji = '🤝'; title = '무승부!'; sub = '팽팽한 승부였어요!';
+    scores.draw++;
+    document.getElementById('score-draw').textContent = scores.draw;
+    winner = 'draw';
+  } else {
+    winner = result.winner;
+    scores[winner]++;
+    document.getElementById('score-' + winner.toLowerCase()).textContent = scores[winner];
+
+    if (isMisere) {
+      if (isAI) {
+        if (winner === 'O') {
+          emoji = '🏆'; title = '내가 이겼어요!'; sub = 'AI가 3개 연속을 만들었어요 😈';
+        } else {
+          emoji = '😅'; title = 'AI 승리!'; sub = '내가 3개 연속을 만들었어요 😭';
+        }
+      } else {
+        emoji = '🏆'; title = `${winner} 승리!`;
+        sub = `${result.loser}가 3개 연속을 만들어서 졌어요! 😈`;
+      }
+    } else {
+      if (isAI) {
+        if (winner === 'O') {
+          emoji = '🎉'; title = '내가 이겼어요!'; sub = 'AI를 이겼어요! 대단해요! 🏆';
+        } else {
+          emoji = '🤖'; title = 'AI 승리!'; sub = '다시 도전해봐요!';
+        }
+      } else {
+        emoji = '🏆'; title = `${winner} 승리!`; sub = '잘 하셨어요!';
+      }
+    }
+  }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-sub').textContent = sub;
+  document.getElementById('result-overlay').classList.add('show');
+  addHistory(gameCount, winner, title);
+}
+
+function addHistory(n, winner, title) {
+  const list = document.getElementById('history-list');
+  const empty = list.querySelector('div[style]');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  const badge = winner === 'O' ? 'h-o' : winner === 'X' ? 'h-x' : 'h-draw';
+  const label = winner === 'draw' ? '무승부' : winner + ' 승';
+  item.innerHTML = `<span class="h-badge ${badge}">${n}판</span><span>${label}</span>`;
+  list.insertBefore(item, list.firstChild);
+}
+
+function closeResult() {
+  document.getElementById('result-overlay').classList.remove('show');
+  resetGame();
+}
+
+// ── 렌더링 ────────────────────────────
+function renderBoard() {
+  for (let i = 0; i < 9; i++) {
+    const cell = document.getElementById('cell-' + i);
+    cell.className = 'cell';
+    if (board[i]) {
+      cell.textContent = board[i];
+      cell.classList.add(board[i].toLowerCase(), 'taken');
+      if (winLine.includes(i)) cell.classList.add('win-cell');
+    } else {
+      cell.textContent = '';
+    }
+  }
+}
+
+function updateStatus() {
+  const isMisere = mode === 'misere' || mode === 'misere-ai';
+  const isAI = mode === 'ai' || mode === 'misere-ai';
+  const dot = document.getElementById('turn-dot');
+  const txt = document.getElementById('status-text');
+  dot.style.background = currentPlayer === 'O' ? '#1D9E75' : '#D85A30';
+  let who = isAI ? (currentPlayer === 'O' ? '내 차례 (O)' : 'AI 차례 (X)') : `${currentPlayer}의 차례`;
+  txt.textContent = isMisere ? who + ' 😈 피하세요!' : who;
+}
+
+// ── AI 로직 ───────────────────────────
+function getAIMove() {
+  const isMisere = mode === 'misere-ai';
+  const empty = board.map((v,i) => v === null ? i : -1).filter(i => i >= 0);
+
+  // 쉬움: 완전 랜덤
+  if (diff === 'easy') {
+    return empty[Math.floor(Math.random() * empty.length)];
+  }
+
+  // 보통: 이기기/막기만 하고 나머지는 랜덤
+  if (diff === 'medium') {
+    if (isMisere) {
+      // 미제레 보통: 내가 3연속 안 되도록 피하기 + 나머지 랜덤
+      // 내가 3연속 되는 칸은 피하기
+      const safe = empty.filter(i => {
+        board[i] = 'X';
+        const loses = checkWin(board, 'X');
+        board[i] = null;
+        return !loses;
+      });
+      const pool = safe.length > 0 ? safe : empty;
+      // O가 이길(3연속) 것 같으면 막기 → O 입장에선 지는 것이므로 안 막아도 되지만 자연스럽게
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      // 일반 보통: 이기기/막기만 하고 나머지 랜덤
+      for (const i of empty) {
+        board[i] = 'X';
+        if (checkWin(board, 'X')) { board[i] = null; return i; }
+        board[i] = null;
+      }
+      for (const i of empty) {
+        board[i] = 'O';
+        if (checkWin(board, 'O')) { board[i] = null; return i; }
+        board[i] = null;
+      }
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+  }
+
+  // 어려움: 완전 Minimax — 절대 못 이김
+  if (isMisere) return getMisereHardMove(empty);
+  return minimax_best();
+}
+
+// ── 완전 Minimax (어려움) ──────────────
+function minimax_best() {
+  let bestScore = -Infinity;
+  let bestMove = -1;
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = 'X';
+      const score = minimax(board, 0, false, -Infinity, Infinity);
+      board[i] = null;
+      if (score > bestScore) { bestScore = score; bestMove = i; }
+    }
+  }
+  return bestMove;
+}
+
+function minimax(b, depth, isMax, alpha, beta) {
+  const winner = getWinner(b);
+  if (winner === 'X') return 10 - depth;
+  if (winner === 'O') return depth - 10;
+  if (b.every(c => c)) return 0;
+
+  if (isMax) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!b[i]) {
+        b[i] = 'X';
+        best = Math.max(best, minimax(b, depth+1, false, alpha, beta));
+        b[i] = null;
+        alpha = Math.max(alpha, best);
+        if (beta <= alpha) break;
+      }
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!b[i]) {
+        b[i] = 'O';
+        best = Math.min(best, minimax(b, depth+1, true, alpha, beta));
+        b[i] = null;
+        beta = Math.min(beta, best);
+        if (beta <= alpha) break;
+      }
+    }
+    return best;
+  }
+}
+
+function getWinner(b) {
+  for (const [a,c,d] of WINS) {
+    if (b[a] && b[a] === b[c] && b[c] === b[d]) return b[a];
+  }
+  return null;
+}
+
+// ── 미제레 어려움 AI ──────────────────
+// 미제레 규칙: 3개 연속 만들면 지는 것
+// AI(X) 목표: 자기는 3연속 피하고, 상대(O)가 3연속 만들도록 유도!
+function getMisereHardMove(empty) {
+  let bestScore = -Infinity;
+  let bestMove = -1;
+  // 동점일 때 위치 다양화
+  const shuffled = [...empty].sort(() => Math.random() - 0.5);
+  for (const i of shuffled) {
+    board[i] = 'X';
+    const score = minimax_misere(board, 0, false, -Infinity, Infinity);
+    board[i] = null;
+    if (score > bestScore) { bestScore = score; bestMove = i; }
+  }
+  return bestMove;
+}
+
+function minimax_misere(b, depth, isMax, alpha, beta) {
+  const winner = getWinner(b);
+  if (winner !== null) {
+    // 미제레: 3연속 만든 쪽이 짐
+    // winner = 방금 3연속 만든 플레이어 = 진 플레이어
+    if (winner === 'X') return depth - 10; // X가 3연속 → X 짐 → AI에게 나쁨
+    if (winner === 'O') return 10 - depth; // O가 3연속 → O 짐 → AI에게 좋음
+  }
+  if (b.every(c => c)) return 0; // 무승부
+
+  if (isMax) {
+    // X(AI) 차례: 3연속 만들지 않으면서 O를 3연속 함정으로 유도
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!b[i]) {
+        b[i] = 'X';
+        best = Math.max(best, minimax_misere(b, depth+1, false, alpha, beta));
+        b[i] = null;
+        alpha = Math.max(alpha, best);
+        if (beta <= alpha) break;
+      }
+    }
+    return best;
+  } else {
+    // O(상대) 차례: O는 3연속 피하려 함 → AI가 O를 3연속으로 몰아야
+    let best = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!b[i]) {
+        b[i] = 'O';
+        best = Math.min(best, minimax_misere(b, depth+1, true, alpha, beta));
+        b[i] = null;
+        beta = Math.min(beta, best);
+        if (beta <= alpha) break;
+      }
+    }
+    return best;
+  }
+}
+
+function checkWin(b, player) {
+  return WINS.some(([a,c,d]) => b[a] === player && b[c] === player && b[d] === player);
+}
+
+function findFork(player, empty) {
+  for (const i of empty) {
+    board[i] = player;
+    let threats = 0;
+    const rest = empty.filter(j => j !== i);
+    for (const j of rest) {
+      board[j] = player;
+      if (checkWin(board, player)) threats++;
+      board[j] = null;
+    }
+    board[i] = null;
+    if (threats >= 2) return i;
+  }
+  return -1;
+}
+
+// ── 시작 ──────────────────────────────
+init();
+updateStatus();
+</script>
+</body>
+</html>
